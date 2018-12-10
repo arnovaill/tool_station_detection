@@ -1,0 +1,17 @@
+<launch>
+  <!-- LAUNCHFILE ARGUMENTS -->
+  <!-- <arg name="distance_to_marker" default="0.1"/> -->
+  <!-- <arg name="output_frame" default="right_arm_base_link"/> -->
+  <arg name="camera_frame" default="camera_1_link"/>
+  <arg name="output_frame" default="right_arm_base_link"/>
+
+  <!-- SET ROBOT NAME PARAM -->
+  <!-- <param name="tool_station_detection/distance_to_marker" value="$(arg distance_to_marker)"/>
+  <param name="tool_station_detection/output_frame" value="$(arg output_frame)"/> -->
+  <param name="tool_station_detection/camera_frame" value="$(arg camera_frame)"/>
+  <param name="tool_station_detection/output_frame" value="$(arg output_frame)"/>
+
+  
+  <node name="tool_station_detection_node" pkg="tool_station_detection" type="tool_station_detection_node" output="screen"/>
+
+</launch>
