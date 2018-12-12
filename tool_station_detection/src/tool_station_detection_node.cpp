@@ -15,13 +15,6 @@
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 // #include <tf_conversions/tf_eigen.h>
 
-// #include <flexbotics_tool_exchanger_manager_msgs/SetMovementParameters.h>
-// #include <flexbotics_tool_exchanger_manager_msgs/SetUseSimParameter.h>
-// #include <flexbotics_tool_exchanger_manager_msgs/LoadToolExchangerInfo.h>
-// #include <flexbotics_tool_exchanger_manager_msgs/GrabTool.h>
-// #include <flexbotics_tool_exchanger_manager_msgs/ReleaseTool.h>
-// #include <tool_exchanger_info_manager/tool_exchanger_info_manager.h>
-
 #include <ar_track_alvar_msgs/AlvarMarker.h>
 #include <ar_track_alvar_msgs/AlvarMarkers.h>
 #include <flexbotics_manipulator_manager_msgs/MoveTraj.h>
@@ -43,7 +36,7 @@ ros::NodeHandle *nh_;
 // Program variables
 std::string package_path_;
 std::string marker_frame_;
-std::string output_frame_;
+std::string base_frame_;
 std::string camera_frame_;
 
 
@@ -179,7 +172,7 @@ bool initVariables()
   move_traj_client_ = nh_->serviceClient<flexbotics_manipulator_manager_msgs::MoveTraj>("flexbotics_manipulator_manager_node/move_traj"); 
 
   // Subscribers
-  ar_marker_pose_ = nh_->subscribe("ar_pose_marker", 100, poseMarkerCallback);
+  ar_marker_pose_ = nh_->subscribe("ar_pose_marker", 10, poseMarkerCallback);
 
   if (nh_->hasParam("/tool_station_detection/camera_frame"))
   {
@@ -187,7 +180,7 @@ bool initVariables()
   }
   if (nh_->hasParam("/tool_station_detection/output_frame"))
   {
-    nh_->getParam("/tool_station_detection/output_frame", output_frame_);
+    nh_->getParam("/tool_station_detection/output_frame", base_frame_);
   }
 
   return true;
@@ -264,14 +257,15 @@ bool PlanMoveTcp(std::string group_name, bool use_actual_pose, std::vector<doubl
   return true;
 }
 
-bool getTF(std::string start_frame, std::string end_frame, tf::StampedTransform& transform)
+bool getTF(std::string start_frame, std::string end_frame, Eigen::Affine3d& transformation)
 {
   tf::TransformListener listener;
+  tf::StampedTransform transform;
 
   try {
     // get transformation from camera frame to desired frame
-    listener.waitForTransform(end_frame,start_frame,ros::Time(0),ros::Duration(1.0) );
-    listener.lookupTransform(end_frame,start_frame,ros::Time(0), transform);
+    listener.waitForTransform(start_frame,end_frame,ros::Time(0),ros::Duration(1.0) );
+    listener.lookupTransform(start_frame,end_frame,ros::Time(0), transform);
   }
   catch (tf::TransformException ex) {
     ROS_ERROR("%s",ex.what());
@@ -279,10 +273,9 @@ bool getTF(std::string start_frame, std::string end_frame, tf::StampedTransform&
   }
 
   // Check
-  Eigen::Affine3d tf;
-  transformTFToEigen(transform,tf);
+  transformTFToEigen(transform,transformation);
   std::vector<double> xyz, rpy;
-  eigen_helper_functions::extractXyzRpy(tf, xyz, rpy);
+  eigen_helper_functions::extractXyzRpy(transformation, xyz, rpy);
   tf::Quaternion q = tf::createQuaternionFromRPY(rpy[0],rpy[1],rpy[2]);
   ROS_WARN("Transform from %s to %s :  XYZ %3.3f %3.3f %3.3f - RPY %3.3f %3.3f %3.3f - QUAT %f %f %f %f ",
           start_frame.c_str(), end_frame.c_str(), xyz[0], xyz[1], xyz[2], rpy[0], rpy[1], rpy[2], q[0], q[1], q[2], q[3]);
@@ -312,7 +305,7 @@ bool ToolStationDetection(
   std::string ar_marker_frame = "ar_marker_" + marker_number;
 
   ROS_INFO("marker_frame: %s", ar_marker_frame.c_str());
-  ROS_INFO("output_frame: %s", output_frame_.c_str());
+  ROS_INFO("output_frame: %s", base_frame_.c_str());
   
 
   std::vector<double> initial_joint_position; // not used
@@ -342,13 +335,18 @@ bool ToolStationDetection(
   // Wait for stable
   sleep(1);
 
+  Eigen::Affine3d marker_pose_camera_frame;
+
   // Check if desired marker detected
   bool marker_found = false;
   for (int i = 0; i < n_marker_; i++)
   {
-    if (target_marker_id == marker_id_[i]) 
+    if (target_marker_id == marker_id_[i])
+    {
       marker_found = true;
-    ROS_INFO("Detected marker with id %d", marker_id_[i]);
+      ROS_INFO("Detected marker with id %d", marker_id_[i]);
+      marker_pose_camera_frame = marker_pose_[i];
+    }
   }
 
   if (!marker_found) 
@@ -360,42 +358,28 @@ bool ToolStationDetection(
     return true;
   }
 
-  // Get transformations
-  tf::StampedTransform camera_to_output_frame;
-  // getTF(camera_frame_,output_frame_, camera_to_output_frame);
-  // tf::StampedTransform marker_to_camera_frame;
-  // getTF(ar_marker_frame,camera_frame_, marker_to_camera_frame);
-  tf::StampedTransform marker_to_output_frame;
-  getTF(ar_marker_frame,output_frame_, marker_to_output_frame);
 
+  // Get transformations
+  Eigen::Affine3d base_to_camera_frame;
+  getTF(base_frame_,camera_frame_, base_to_camera_frame);
 
   //refine end effector pose in marker frame (futur parameter ? ) (check desired tool0 position compared to marker)
   std::vector<double> xyz = {0,0,distance_to_marker};
   std::vector<double> rpy = {M_PI,0,0};
   Eigen::Affine3d refine_pose_marker_frame;
   eigen_helper_functions::createHomogeneousMatrixXyzRpy(xyz,rpy,refine_pose_marker_frame);
-  geometry_msgs::Pose refine_pose_marker_frame_msg;
-  tf::poseEigenToMsg (refine_pose_marker_frame,refine_pose_marker_frame_msg);
+  Eigen::Affine3d marker_pose_base_frame = base_to_camera_frame*marker_pose_camera_frame;
+  printPose(marker_pose_base_frame,"marker_pose_base_frame");
+  Eigen::Affine3d refine_pose_base_frame = base_to_camera_frame*marker_pose_camera_frame*refine_pose_marker_frame;
 
-   
-  geometry_msgs::Pose refine_pose_output_frame_msg;
-  geometry_msgs::TransformStamped marker_to_output_frame_geom;
-  
-  //Transform refine pose output frame
-  tf::transformStampedTFToMsg(marker_to_output_frame,marker_to_output_frame_geom);
-  tf2::doTransform(refine_pose_marker_frame_msg, refine_pose_output_frame_msg,marker_to_output_frame_geom );
-
-  // To Eigen
-  Eigen::Affine3d refine_pose_output_frame;
-  tf::poseMsgToEigen(refine_pose_output_frame_msg,refine_pose_output_frame);
-  printPose(refine_pose_output_frame,"refine_pose_output_frame");
+  printPose(refine_pose_base_frame,"refine_pose_base_frame");
 
   
 
   //Plan movement from detection pose to refine pose 
   trajectory_msgs::JointTrajectory trajectory_to_refine_pose;
 
-  if (!PlanMoveTcp(group_name, true, initial_joint_position, refine_pose_output_frame, tcp_pose_identity, velocity_ratio, trajectory_to_refine_pose))
+  if (!PlanMoveTcp(group_name, true, initial_joint_position, refine_pose_base_frame, tcp_pose_identity, velocity_ratio, trajectory_to_refine_pose))
   {
     ROS_ERROR("Error while planning trajectory in ToolStationDetection!");
     res.success = false;
@@ -415,16 +399,14 @@ bool ToolStationDetection(
 
   // Wait for stable
   sleep(1);
-
-  geometry_msgs::Pose marker_pose_msg;
-
+  
   // Check if desired marker detected
-    for (int i = 0; i < n_marker_; i++)
+  for (int i = 0; i < n_marker_; i++)
   {
     if (target_marker_id == marker_id_[i])
     {
       marker_found = true;
-      tf::poseEigenToMsg(marker_pose_[i],marker_pose_msg);
+      marker_pose_camera_frame = marker_pose_[i];
     }
       
     ROS_INFO("Detected marker with id %d", marker_id_[i]);
@@ -438,7 +420,17 @@ bool ToolStationDetection(
     res.message = "Error: desired marker not detected!";
     return true;
   }
+
+
+  Eigen::Affine3d marker_pose;
+  geometry_msgs::Pose marker_pose_msg;
+
+  getTF(base_frame_,camera_frame_, base_to_camera_frame);
+
   
+  marker_pose = base_to_camera_frame*marker_pose_camera_frame;
+  tf::poseEigenToMsg(marker_pose,marker_pose_msg);
+
   res.marker_pose = marker_pose_msg;
   res.success = true;
   res.error_id = 0;
@@ -458,12 +450,12 @@ int main(int argc, char **argv)
   nh_ = &nh;
   
 
-  ROS_WARN("Initializing Flexbotics Tool Exchanger Manager Node...");
+  ROS_WARN("Initializing Tool Station Detection Node...");
 
   if (!initVariables()) 
   {
     ROS_ERROR(
-        "Could not initialize Flexbotics Tool Exchanger Manager Node "
+        "Could not initialize Tool Station Detection Node "
         "correctly!!!");
     ROS_WARN("Program finished!!!");
     return -1;
