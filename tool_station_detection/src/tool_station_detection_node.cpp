@@ -35,7 +35,7 @@ ros::NodeHandle *nh_;
 
 // Program variables
 std::string package_path_;
-std::string marker_frame_;
+std::string end_effector_frame_;
 std::string base_frame_;
 std::string camera_frame_;
 
@@ -174,6 +174,10 @@ bool initVariables()
   // Subscribers
   ar_marker_pose_ = nh_->subscribe("ar_pose_marker", 10, poseMarkerCallback);
 
+  if (nh_->hasParam("/tool_station_detection/end_effector_frame"))
+  {
+    nh_->getParam("/tool_station_detection/end_effector_frame", end_effector_frame_);
+  }
   if (nh_->hasParam("/tool_station_detection/camera_frame"))
   {
     nh_->getParam("/tool_station_detection/camera_frame", camera_frame_);
@@ -362,24 +366,26 @@ bool ToolStationDetection(
   // Get transformations
   Eigen::Affine3d base_to_camera_frame;
   getTF(base_frame_,camera_frame_, base_to_camera_frame);
+  Eigen::Affine3d camera_to_end_effector;
+  getTF(camera_frame_,end_effector_frame_, camera_to_end_effector);
 
-  //refine end effector pose in marker frame (futur parameter ? ) (check desired tool0 position compared to marker)
+  //refine desired camera pose in marker frame  (check desired camera position compared to marker)
   std::vector<double> xyz = {0,0,distance_to_marker};
-  std::vector<double> rpy = {M_PI,0,0};
-  Eigen::Affine3d refine_pose_marker_frame;
-  eigen_helper_functions::createHomogeneousMatrixXyzRpy(xyz,rpy,refine_pose_marker_frame);
+  std::vector<double> rpy = {0,M_PI/2,0};
+  Eigen::Affine3d refine_camera_pose_marker_frame;
+  eigen_helper_functions::createHomogeneousMatrixXyzRpy(xyz,rpy,refine_camera_pose_marker_frame);
   Eigen::Affine3d marker_pose_base_frame = base_to_camera_frame*marker_pose_camera_frame;
   printPose(marker_pose_base_frame,"marker_pose_base_frame");
-  Eigen::Affine3d refine_pose_base_frame = base_to_camera_frame*marker_pose_camera_frame*refine_pose_marker_frame;
-
-  printPose(refine_pose_base_frame,"refine_pose_base_frame");
-
+  Eigen::Affine3d refine_camera_pose_base_frame = base_to_camera_frame*marker_pose_camera_frame*refine_camera_pose_marker_frame;
+  Eigen::Affine3d refine_end_effector_pose_base_frame = refine_camera_pose_base_frame*camera_to_end_effector;
+  printPose(refine_camera_pose_base_frame,"refine_camera_pose_base_frame");
+  printPose(refine_end_effector_pose_base_frame,"refine_end_effector_pose_base_frame");
   
 
   //Plan movement from detection pose to refine pose 
   trajectory_msgs::JointTrajectory trajectory_to_refine_pose;
 
-  if (!PlanMoveTcp(group_name, true, initial_joint_position, refine_pose_base_frame, tcp_pose_identity, velocity_ratio, trajectory_to_refine_pose))
+  if (!PlanMoveTcp(group_name, true, initial_joint_position, refine_end_effector_pose_base_frame, tcp_pose_identity, velocity_ratio, trajectory_to_refine_pose))
   {
     ROS_ERROR("Error while planning trajectory in ToolStationDetection!");
     res.success = false;
