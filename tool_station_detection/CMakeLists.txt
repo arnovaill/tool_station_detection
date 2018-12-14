@@ -9,12 +9,10 @@ find_package( catkin REQUIRED
   roslib
   eigen_conversions
   eigen_helper_functions
-  # tool_exchanger_info_manager
   flexbotics_manipulator_manager_msgs
   flexbotics_manipulation_planner_msgs
   tool_station_detection_msgs
   ar_track_alvar
-  # flexbotics_tool_exchanger_manager_msgs
 )
 find_package( Eigen3 REQUIRED )
 else()
@@ -24,12 +22,10 @@ find_package( catkin REQUIRED COMPONENTS
   cmake_modules
   eigen_conversions
   eigen_helper_functions
-  # tool_exchanger_info_manager
   flexbotics_manipulator_manager_msgs
   flexbotics_manipulation_planner_msgs
   tool_station_detection_msgs
   ar_track_alvar
-  # flexbotics_tool_exchanger_manager_msgs
 )
 find_package( Eigen REQUIRED )
 endif()

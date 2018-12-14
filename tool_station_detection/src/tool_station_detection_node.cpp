@@ -13,7 +13,7 @@
 #include <tf/transform_datatypes.h>
 #include <tf2_ros/transform_broadcaster.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
-// #include <tf_conversions/tf_eigen.h>
+#include <tf/transform_broadcaster.h>
 
 #include <ar_track_alvar_msgs/AlvarMarker.h>
 #include <ar_track_alvar_msgs/AlvarMarkers.h>
@@ -133,30 +133,35 @@ void poseMarkerCallback(const ar_track_alvar_msgs::AlvarMarkersConstPtr& msg)
     marker_id_.clear();
     for (int i = 0; i < n_marker_ ; i++)
     {
-        marker_pose_msg_ = msg->markers[i].pose.pose;
-        tf::poseMsgToEigen(marker_pose_msg_, marker_pose);
+      marker_pose_msg_ = msg->markers[i].pose.pose;
+      tf::poseMsgToEigen(marker_pose_msg_, marker_pose);
 
-        marker_id_.push_back(msg->markers[i].id);
-        marker_pose_.push_back(marker_pose);
+      marker_id_.push_back(msg->markers[i].id);
+      marker_pose_.push_back(marker_pose);
 
-        // ROS_INFO("marker_id: %d", marker_id_[i]);
-        // printPose(marker_pose_[i],"x");
+      // ROS_INFO("marker_id: %d", marker_id_[i]);
+      // printPose(marker_pose_[i],"x");
 
 
-        // marker_pose_history_[i].push_front(marker_pose_);
+      // marker_pose_history_[i].push_front(marker_pose_);
 
-        // if (marker_pose_history_[i].size() > size_marker_memory_)
-        // {
-        //   // keep only the last n marker poses
-        //   marker_pose_history_[i].resize(size_marker_memory_);
-        //   // average
-        //   averagePose(marker_pose_history_, marker_pose_mean_[i]);
-        // }
+      // if (marker_pose_history_[i].size() > size_marker_memory_)
+      // {
+      //   // keep only the last n marker poses
+      //   marker_pose_history_[i].resize(size_marker_memory_);
+      //   // average
+      //   averagePose(marker_pose_history_, marker_pose_mean_[i]);
+      // }
       
-
+      // Publisher for visualisation purposes
+      // static tf::TransformBroadcaster br;
+      // tf::Transform transform;
+      // tf::poseMsgToTF(marker_pose_msg_,transform);
+      // br.sendTransform(tf::StampedTransform(transform, ros::Time::now(), camera_frame_, "my_marker"));
     }
   }
-    
+
+
 }
 
 
@@ -173,6 +178,11 @@ bool initVariables()
 
   // Subscribers
   ar_marker_pose_ = nh_->subscribe("ar_pose_marker", 10, poseMarkerCallback);
+
+
+  
+
+
 
   if (nh_->hasParam("/tool_station_detection/end_effector_frame"))
   {
@@ -296,6 +306,7 @@ bool ToolStationDetection(
   /// Get variables
   int target_marker_id = req.marker_id;
   std::string group_name = req.group_name;
+  bool use_current_pose_for_detection = req.use_current_pose_for_detection;
   geometry_msgs::Pose detection_pose_msg = req.detection_pose;
   double distance_to_marker = req.distance_to_marker;
 
@@ -311,33 +322,35 @@ bool ToolStationDetection(
   ROS_INFO("marker_frame: %s", ar_marker_frame.c_str());
   ROS_INFO("output_frame: %s", base_frame_.c_str());
   
-
   std::vector<double> initial_joint_position; // not used
   // Create identity matrix (tool center point is end effector of robot)
   Eigen::Affine3d tcp_pose_identity = Eigen::Affine3d::Identity();
-  trajectory_msgs::JointTrajectory trajectory_to_detection_pose;
-  
-  //Plan movement from initial position to detection pose
-  if (!PlanMoveTcp(group_name, true, initial_joint_position, detection_pose, tcp_pose_identity, velocity_ratio, trajectory_to_detection_pose))
-  {
-    ROS_ERROR("Error while planning trajectory in ToolStationDetection!");
-    res.success = false;
-    res.error_id = -1;
-    res.message = "Error while planning trajectory in ToolStationDetection!";
-    return true;
-  }
 
-  if (!MoveTraj(group_name, trajectory_to_detection_pose , timeout ))
+  if (!use_current_pose_for_detection)
   {
-    ROS_ERROR("Error while executing trajectory in ToolStationDetection!");
-    res.success = false;
-    res.error_id = -1;
-    res.message = "Error while executing trajectory in ToolStationDetection!";
-    return true;
-  }
+    trajectory_msgs::JointTrajectory trajectory_to_detection_pose;
 
-  // Wait for stable
-  sleep(1);
+    //Plan movement from initial position to detection pose
+    if (!PlanMoveTcp(group_name, true, initial_joint_position, detection_pose, tcp_pose_identity, velocity_ratio, trajectory_to_detection_pose))
+    {
+      ROS_ERROR("Error while planning trajectory in ToolStationDetection!");
+      res.success = false;
+      res.error_id = -1;
+      res.message = "Error while planning trajectory in ToolStationDetection!";
+      return true;
+    }
+
+    if (!MoveTraj(group_name, trajectory_to_detection_pose , timeout ))
+    {
+      ROS_ERROR("Error while executing trajectory in ToolStationDetection!");
+      res.success = false;
+      res.error_id = -1;
+      res.message = "Error while executing trajectory in ToolStationDetection!";
+      return true;
+    }
+    // Wait for stable
+    sleep(1);
+  }
 
   Eigen::Affine3d marker_pose_camera_frame;
 

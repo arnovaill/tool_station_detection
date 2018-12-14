@@ -10,15 +10,6 @@ find_package(catkin REQUIRED COMPONENTS
 add_service_files(DIRECTORY srv
   FILES
   ToolStationDetection.srv
-  # MoveJoint.srv
-  # MoveTcp.srv
-  # MoveLin.srv
-  # LoadGripperIoInfo.srv
-  # GetDigitalInput.srv
-  # GetDigitalOutput.srv
-  # SetDigitalOutput.srv
-  # ActivateGripper.srv
-  # DeactivateGripper.srv
 )
 
 generate_messages(DEPENDENCIES
