@@ -3,7 +3,7 @@
   <!-- <arg name="distance_to_marker" default="0.1"/> -->
   <!-- <arg name="output_frame" default="right_arm_base_link"/> -->
   <arg name="end_effector_frame" default="right_arm_tool0"/>
-  <arg name="camera_frame" default="camera_1_link"/>
+  <arg name="camera_frame" default="camera"/>
   <arg name="output_frame" default="right_arm_base_link"/>
 
   <!-- SET ROBOT NAME PARAM -->

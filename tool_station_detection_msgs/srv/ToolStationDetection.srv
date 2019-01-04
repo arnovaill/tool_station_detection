@@ -1,12 +1,12 @@
 int16 marker_id
 string group_name
 bool use_current_pose_for_detection
-geometry_msgs/Pose detection_pose
-float64 distance_to_marker
+geometry_msgs/Pose first_detection_pose #relative to base_link of robot
+geometry_msgs/Pose refine_pose # desired position of the marker in camera frame in order to re detect the marker position
 float64 velocity_ratio
 
 ---
-geometry_msgs/Pose marker_pose #
+geometry_msgs/Pose marker_pose # relative to desired output frame
 bool success    # Indicate successful run of triggered service
 int16 error_id
 string message  # Informational, e.g. for error messages

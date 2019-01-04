@@ -307,9 +307,10 @@ bool ToolStationDetection(
   int target_marker_id = req.marker_id;
   std::string group_name = req.group_name;
   bool use_current_pose_for_detection = req.use_current_pose_for_detection;
-  geometry_msgs::Pose detection_pose_msg = req.detection_pose;
-  double distance_to_marker = req.distance_to_marker;
-
+  geometry_msgs::Pose detection_pose_msg = req.first_detection_pose;
+  geometry_msgs::Pose refine_pose_msg = req.refine_pose;
+  Eigen::Affine3d refine_pose; 
+  tf::poseMsgToEigen(refine_pose_msg, refine_pose) ;
   Eigen::Affine3d detection_pose;
   tf::poseMsgToEigen(detection_pose_msg, detection_pose);
   double velocity_ratio = req.velocity_ratio;
@@ -382,14 +383,10 @@ bool ToolStationDetection(
   Eigen::Affine3d camera_to_end_effector;
   getTF(camera_frame_,end_effector_frame_, camera_to_end_effector);
 
-  //refine desired camera pose in marker frame  (check desired camera position compared to marker)
-  std::vector<double> xyz = {0,0,distance_to_marker};
-  std::vector<double> rpy = {0,M_PI/2,0};
-  Eigen::Affine3d refine_camera_pose_marker_frame;
-  eigen_helper_functions::createHomogeneousMatrixXyzRpy(xyz,rpy,refine_camera_pose_marker_frame);
+
   Eigen::Affine3d marker_pose_base_frame = base_to_camera_frame*marker_pose_camera_frame;
   printPose(marker_pose_base_frame,"marker_pose_base_frame");
-  Eigen::Affine3d refine_camera_pose_base_frame = base_to_camera_frame*marker_pose_camera_frame*refine_camera_pose_marker_frame;
+  Eigen::Affine3d refine_camera_pose_base_frame = base_to_camera_frame*marker_pose_camera_frame*refine_pose.inverse();
   Eigen::Affine3d refine_end_effector_pose_base_frame = refine_camera_pose_base_frame*camera_to_end_effector;
   printPose(refine_camera_pose_base_frame,"refine_camera_pose_base_frame");
   printPose(refine_end_effector_pose_base_frame,"refine_end_effector_pose_base_frame");
@@ -449,6 +446,24 @@ bool ToolStationDetection(
   
   marker_pose = base_to_camera_frame*marker_pose_camera_frame;
   tf::poseEigenToMsg(marker_pose,marker_pose_msg);
+
+  //   short code to calculate relative poses 
+
+  //  std::vector<double> xyz = {-0.218963716328,0.870844641726,-0.0395077013549};
+  //  std::vector<double> rpy = {-2.79119553155,-0.703456203229,2.72369609372};
+  //  Eigen::Affine3d approach_pose;
+  //  eigen_helper_functions::createHomogeneousMatrixXyzRpy(xyz,rpy,approach_pose);
+  
+  //  std::vector<double> xyz2 = {-0.301353405158,0.870844641726,-0.122001796751};
+  //  std::vector<double> rpy2 = {-2.79119553155,-0.703456203229,2.72369609372};
+  //  Eigen::Affine3d exchange_pose;
+  //  eigen_helper_functions::createHomogeneousMatrixXyzRpy(xyz2,rpy2,exchange_pose);
+  
+  //  Eigen::Affine3d relative_approach_pose = marker_pose.inverse()*approach_pose;
+  //  Eigen::Affine3d relative_exchange_pose = marker_pose.inverse()*exchange_pose;
+   
+  //  printPose(relative_approach_pose,"relative_approach_pose");
+  //  printPose(relative_exchange_pose,"relative_exchange_pose");
 
   res.marker_pose = marker_pose_msg;
   res.success = true;
