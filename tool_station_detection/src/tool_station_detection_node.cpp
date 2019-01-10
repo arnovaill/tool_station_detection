@@ -291,8 +291,8 @@ bool getTF(std::string start_frame, std::string end_frame, Eigen::Affine3d& tran
   std::vector<double> xyz, rpy;
   eigen_helper_functions::extractXyzRpy(transformation, xyz, rpy);
   tf::Quaternion q = tf::createQuaternionFromRPY(rpy[0],rpy[1],rpy[2]);
-  ROS_WARN("Transform from %s to %s :  XYZ %3.3f %3.3f %3.3f - RPY %3.3f %3.3f %3.3f - QUAT %f %f %f %f ",
-          start_frame.c_str(), end_frame.c_str(), xyz[0], xyz[1], xyz[2], rpy[0], rpy[1], rpy[2], q[0], q[1], q[2], q[3]);
+  // ROS_WARN("Transform from %s to %s :  XYZ %3.3f %3.3f %3.3f - RPY %3.3f %3.3f %3.3f - QUAT %f %f %f %f ",
+          // start_frame.c_str(), end_frame.c_str(), xyz[0], xyz[1], xyz[2], rpy[0], rpy[1], rpy[2], q[0], q[1], q[2], q[3]);
 
 }
 
