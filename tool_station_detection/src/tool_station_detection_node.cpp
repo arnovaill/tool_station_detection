@@ -385,11 +385,11 @@ bool ToolStationDetection(
 
 
   Eigen::Affine3d marker_pose_base_frame = base_to_camera_frame*marker_pose_camera_frame;
-  printPose(marker_pose_base_frame,"marker_pose_base_frame");
+  // printPose(marker_pose_base_frame,"marker_pose_base_frame");
   Eigen::Affine3d refine_camera_pose_base_frame = base_to_camera_frame*marker_pose_camera_frame*refine_pose.inverse();
   Eigen::Affine3d refine_end_effector_pose_base_frame = refine_camera_pose_base_frame*camera_to_end_effector;
-  printPose(refine_camera_pose_base_frame,"refine_camera_pose_base_frame");
-  printPose(refine_end_effector_pose_base_frame,"refine_end_effector_pose_base_frame");
+  // printPose(refine_camera_pose_base_frame,"refine_camera_pose_base_frame");
+  // printPose(refine_end_effector_pose_base_frame,"refine_end_effector_pose_base_frame");
   
 
   //Plan movement from detection pose to refine pose 
@@ -446,6 +446,7 @@ bool ToolStationDetection(
   
   marker_pose = base_to_camera_frame*marker_pose_camera_frame;
   tf::poseEigenToMsg(marker_pose,marker_pose_msg);
+  printPose(marker_pose, "marker_pose:");
 
   //   short code to calculate relative poses 
 
