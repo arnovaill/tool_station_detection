@@ -14,4 +14,15 @@
   
   <node name="tool_station_detection_node" pkg="tool_station_detection" type="tool_station_detection_node" output="screen"/>
 
+  <!-- launch ar_track_alvar with namespace-->
+  <group ns="tool_station_detection">
+  <include file="$(find ar_track_alvar)/launch/pr2_indiv_no_kinect.launch">
+    <arg name="marker_size" default="6" />
+    <arg name="max_new_marker_error" default="0.08" />
+    <arg name="max_track_error" default="0.2" />
+    <arg name="cam_image_topic" default="/camera/image_raw" />
+    <arg name="cam_info_topic" default="/camera/camera_info" />
+    <arg name="output_frame" default="/camera" />
+  </include>
+  </group>
 </launch>

@@ -177,7 +177,7 @@ bool initVariables()
   move_traj_client_ = nh_->serviceClient<flexbotics_manipulator_manager_msgs::MoveTraj>("flexbotics_manipulator_manager_node/move_traj"); 
 
   // Subscribers
-  ar_marker_pose_ = nh_->subscribe("ar_pose_marker", 10, poseMarkerCallback);
+  ar_marker_pose_ = nh_->subscribe("tool_station_detection/ar_pose_marker", 10, poseMarkerCallback);
 
 
   
