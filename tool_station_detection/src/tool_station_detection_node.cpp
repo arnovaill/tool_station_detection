@@ -20,18 +20,9 @@
 #include <flexbotics_manipulator_manager_msgs/MoveTraj.h>
 #include <flexbotics_manipulation_planner_msgs/PlanMoveTcp.h> 
 #include <tool_station_detection_msgs/ToolStationDetection.h>
-// #include <flexbotics_manipulation_planner_msgs/PlanMoveLin.h>
-// #include <flexbotics_manipulation_planner_msgs/PlanMoveJoint.h> 
-
-
+ 
+ 
 ros::NodeHandle *nh_;
-
-// // Movement related parameters 
-// double velocity_ratio_;
-// double translation_velocity_;
-// double rotation_velocity_;
-// double timeout_; 
-// int max_count_; // for functions "extra" (trying multiple times to execute a function)
 
 // Program variables
 std::string package_path_;
@@ -123,12 +114,11 @@ void poseMarkerCallback(const ar_track_alvar_msgs::AlvarMarkersConstPtr& msg)
 {
 
   n_marker_ = msg->markers.size();
-  // ROS_INFO_THROTTLE(2,"Number of marker detected: %d ", n_marker_);
   Eigen::Affine3d marker_pose;
 
   if (n_marker_ >= 1)
   {
-    // reset marker pose to have good number of element
+    // reset marker pose to have the right number of element
     marker_pose_.clear();
     marker_id_.clear();
     for (int i = 0; i < n_marker_ ; i++)
@@ -138,28 +128,9 @@ void poseMarkerCallback(const ar_track_alvar_msgs::AlvarMarkersConstPtr& msg)
 
       marker_id_.push_back(msg->markers[i].id);
       marker_pose_.push_back(marker_pose);
-
-      // ROS_INFO("marker_id: %d", marker_id_[i]);
-      // printPose(marker_pose_[i],"x");
-
-
-      // marker_pose_history_[i].push_front(marker_pose_);
-
-      // if (marker_pose_history_[i].size() > size_marker_memory_)
-      // {
-      //   // keep only the last n marker poses
-      //   marker_pose_history_[i].resize(size_marker_memory_);
-      //   // average
-      //   averagePose(marker_pose_history_, marker_pose_mean_[i]);
-      // }
-      
-      // Publisher for visualisation purposes
-      // static tf::TransformBroadcaster br;
-      // tf::Transform transform;
-      // tf::poseMsgToTF(marker_pose_msg_,transform);
-      // br.sendTransform(tf::StampedTransform(transform, ros::Time::now(), camera_frame_, "my_marker"));
     }
   }
+
 
 
 }
@@ -171,17 +142,10 @@ bool initVariables()
   package_path_ = ros::package::getPath("tool_station_detection");
   size_marker_memory_ = 15;
   // Service Clients
-  // plan_move_lin_client_ = nh_->serviceClient<flexbotics_manipulation_planner_msgs::PlanMoveLin>("/flexbotics_manipulation_planner/plan_move_lin");
-  // plan_move_joint_client_ = nh_->serviceClient<flexbotics_manipulation_planner_msgs::PlanMoveJoint>("/flexbotics_manipulation_planner/plan_move_joint");
   plan_move_tcp_client_ = nh_->serviceClient<flexbotics_manipulation_planner_msgs::PlanMoveTcp>("/flexbotics_manipulation_planner/plan_move_tcp");
   move_traj_client_ = nh_->serviceClient<flexbotics_manipulator_manager_msgs::MoveTraj>("flexbotics_manipulator_manager_node/move_traj"); 
-
   // Subscribers
   ar_marker_pose_ = nh_->subscribe("tool_station_detection/ar_pose_marker", 10, poseMarkerCallback);
-
-
-  
-
 
 
   if (nh_->hasParam("/tool_station_detection/end_effector_frame"))
@@ -227,6 +191,7 @@ bool MoveTraj(std::string group_name, trajectory_msgs::JointTrajectory trajector
 
   return true;
 }
+
 
 bool PlanMoveTcp(std::string group_name, bool use_actual_pose, std::vector<double> initial_joint_position, 
                 Eigen::Affine3d target_tcp_pose,  Eigen::Affine3d initial_tcp_pose, double velocity_ratio,
@@ -291,8 +256,6 @@ bool getTF(std::string start_frame, std::string end_frame, Eigen::Affine3d& tran
   std::vector<double> xyz, rpy;
   eigen_helper_functions::extractXyzRpy(transformation, xyz, rpy);
   tf::Quaternion q = tf::createQuaternionFromRPY(rpy[0],rpy[1],rpy[2]);
-  // ROS_WARN("Transform from %s to %s :  XYZ %3.3f %3.3f %3.3f - RPY %3.3f %3.3f %3.3f - QUAT %f %f %f %f ",
-          // start_frame.c_str(), end_frame.c_str(), xyz[0], xyz[1], xyz[2], rpy[0], rpy[1], rpy[2], q[0], q[1], q[2], q[3]);
 
 }
 
@@ -301,7 +264,7 @@ bool ToolStationDetection(
     tool_station_detection_msgs::ToolStationDetection::Response &res) 
 {
 
-  ROS_WARN("NEW TOOL STATION DETECTION REQUEST");
+  ROS_WARN("New tool detection request");
 
   /// Get variables
   int target_marker_id = req.marker_id;
@@ -316,14 +279,14 @@ bool ToolStationDetection(
   double velocity_ratio = req.velocity_ratio;
   
   
-  double timeout = 20; // TODO verification ok to leave hard-coded
+  double timeout = 20; 
   std::string marker_number = std::to_string(target_marker_id);
   std::string ar_marker_frame = "ar_marker_" + marker_number;
 
   ROS_INFO("marker_frame: %s", ar_marker_frame.c_str());
   ROS_INFO("output_frame: %s", base_frame_.c_str());
   
-  std::vector<double> initial_joint_position; // not used
+  std::vector<double> initial_joint_position; 
   // Create identity matrix (tool center point is end effector of robot)
   Eigen::Affine3d tcp_pose_identity = Eigen::Affine3d::Identity();
 
@@ -383,14 +346,9 @@ bool ToolStationDetection(
   Eigen::Affine3d camera_to_end_effector;
   getTF(camera_frame_,end_effector_frame_, camera_to_end_effector);
 
-
   Eigen::Affine3d marker_pose_base_frame = base_to_camera_frame*marker_pose_camera_frame;
-  // printPose(marker_pose_base_frame,"marker_pose_base_frame");
   Eigen::Affine3d refine_camera_pose_base_frame = base_to_camera_frame*marker_pose_camera_frame*refine_pose.inverse();
-  Eigen::Affine3d refine_end_effector_pose_base_frame = refine_camera_pose_base_frame*camera_to_end_effector;
-  // printPose(refine_camera_pose_base_frame,"refine_camera_pose_base_frame");
-  // printPose(refine_end_effector_pose_base_frame,"refine_end_effector_pose_base_frame");
-  
+  Eigen::Affine3d refine_end_effector_pose_base_frame = refine_camera_pose_base_frame*camera_to_end_effector; 
 
   //Plan movement from detection pose to refine pose 
   trajectory_msgs::JointTrajectory trajectory_to_refine_pose;
@@ -447,24 +405,6 @@ bool ToolStationDetection(
   marker_pose = base_to_camera_frame*marker_pose_camera_frame;
   tf::poseEigenToMsg(marker_pose,marker_pose_msg);
   printPose(marker_pose, "marker_pose:");
-
-  //   short code to calculate relative poses 
-
-  //  std::vector<double> xyz = {-0.218963716328,0.870844641726,-0.0395077013549};
-  //  std::vector<double> rpy = {-2.79119553155,-0.703456203229,2.72369609372};
-  //  Eigen::Affine3d approach_pose;
-  //  eigen_helper_functions::createHomogeneousMatrixXyzRpy(xyz,rpy,approach_pose);
-  
-  //  std::vector<double> xyz2 = {-0.301353405158,0.870844641726,-0.122001796751};
-  //  std::vector<double> rpy2 = {-2.79119553155,-0.703456203229,2.72369609372};
-  //  Eigen::Affine3d exchange_pose;
-  //  eigen_helper_functions::createHomogeneousMatrixXyzRpy(xyz2,rpy2,exchange_pose);
-  
-  //  Eigen::Affine3d relative_approach_pose = marker_pose.inverse()*approach_pose;
-  //  Eigen::Affine3d relative_exchange_pose = marker_pose.inverse()*exchange_pose;
-   
-  //  printPose(relative_approach_pose,"relative_approach_pose");
-  //  printPose(relative_exchange_pose,"relative_exchange_pose");
 
   res.marker_pose = marker_pose_msg;
   res.success = true;
